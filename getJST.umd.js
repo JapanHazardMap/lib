@@ -1,79 +1,89 @@
 var getJST = (() => {
-  var y = Object.defineProperty;
-  var f = Object.getOwnPropertyDescriptor;
-  var d = Object.getOwnPropertyNames;
-  var h = Object.prototype.hasOwnProperty;
-  var p = (n, e) => {
-      for (var t in e) y(n, t, { get: e[t], enumerable: !0 });
+  var l = Object.defineProperty;
+  var T = Object.getOwnPropertyDescriptor;
+  var S = Object.getOwnPropertyNames;
+  var g = Object.prototype.hasOwnProperty;
+  var w = (t, n) => {
+      for (var e in n) l(t, e, { get: n[e], enumerable: !0 });
     },
-    l = (n, e, t, s) => {
-      if ((e && typeof e == 'object') || typeof e == 'function')
-        for (let o of d(e))
-          !h.call(n, o) &&
-            o !== t &&
-            y(n, o, { get: () => e[o], enumerable: !(s = f(e, o)) || s.enumerable });
-      return n;
+    x = (t, n, e, r) => {
+      if ((n && typeof n == 'object') || typeof n == 'function')
+        for (let o of S(n))
+          !g.call(t, o) &&
+            o !== e &&
+            l(t, o, { get: () => n[o], enumerable: !(r = T(n, o)) || r.enumerable });
+      return t;
     };
-  var T = (n) => l(y({}, '__esModule', { value: !0 }), n);
-  var C = {};
-  p(C, {
-    getClockOffset: () => S,
-    getJSTCptTs: () => M,
-    getJSTDate: () => k,
-    getJSTDateMillSec: () => _,
-    getJSTISOString: () => w,
-    getJSTISOStringNoMs: () => J,
-    getJSTMillSec: () => O,
+  var J = (t) => x(l({}, '__esModule', { value: !0 }), t);
+  var j = {};
+  w(j, {
+    getClockOffset: () => _,
+    getJSTCptTs: () => O,
+    getJSTDate: () => P,
+    getJSTDateMillSec: () => I,
+    getJSTISOString: () => C,
+    getJSTISOStringNoMs: () => k,
+    getJSTMillSec: () => b,
     getJSTParts: () => c,
-    getJSTTimestamp: () => D,
-    syncJST: () => g,
+    getJSTTimestamp: () => N,
+    syncJST: () => M,
   });
-  var u = 0,
-    $ = !1;
-  async function g(n) {
-    let e = n
+  var m = 0,
+    d = !1,
+    f = null,
+    D = 3600;
+  async function M(t = {}) {
+    let {
+        customApiUrl: n = typeof t == 'string' ? t : void 0,
+        ttlSec: e = D,
+        force: r = !1,
+      } = typeof t == 'object' && t !== null ? t : {},
+      o = performance.now();
+    if (!r && d && f !== null && e > 0 && (o - f) / 1e3 < e) return m;
+    let s = n
       ? [n]
       : [
           'https://www.cloudflare.com/cdn-cgi/trace',
           'https://worldtimeapi.org/api/timezone/Asia/Tokyo',
         ];
-    for (let t of e)
+    for (let u of s)
       try {
-        let s = Date.now(),
-          o = await fetch(t, { cache: 'no-store' }),
-          r = Date.now();
-        if (!o.ok) continue;
-        let m = await o.text(),
+        let $ = Date.now(),
+          p = await fetch(u, { cache: 'no-store' }),
+          h = Date.now();
+        if (!p.ok) continue;
+        let y = await p.text(),
           a = null;
-        if (m.trim().startsWith('{')) {
-          let i = JSON.parse(m);
+        if (y.trim().startsWith('{')) {
+          let i = JSON.parse(y);
           typeof i.unix_timestamp == 'number'
             ? (a = i.unix_timestamp)
             : typeof i.unixtime == 'number' && (a = i.unixtime * 1e3);
         } else {
-          let i = m.match(/ts=([0-9.]+)/);
+          let i = y.match(/ts=([0-9.]+)/);
           i && (a = parseFloat(i[1]) * 1e3);
         }
         if (typeof a == 'number' && !isNaN(a)) {
-          let i = r - s;
-          return ((u = a - (s + i / 2)), ($ = !0), u);
+          let i = h - $;
+          return ((m = a - ($ + i / 2)), (d = !0), (f = performance.now()), m);
         }
       } catch {}
     return (
       console.warn(
         '[getJST] \u3059\u3079\u3066\u306E\u6642\u523B\u540C\u671FAPI\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u7AEF\u672B\u306E\u6642\u8A08\u3092\u4F7F\u7528\u3057\u307E\u3059\u3002',
       ),
-      u
+      m
     );
   }
-  function S() {
-    return { offsetMs: Math.round(u), isSynced: $ };
+  function _() {
+    let t = f !== null ? Math.round(((performance.now() - f) / 1e3) * 100) / 100 : null;
+    return { offsetMs: Math.round(m), isSynced: d, elapsedSec: t };
   }
-  function x() {
-    return new Date(Date.now() + u);
+  function A() {
+    return new Date(Date.now() + m);
   }
   function c() {
-    let e = new Intl.DateTimeFormat('en-CA', {
+    let n = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric',
         month: '2-digit',
@@ -83,45 +93,45 @@ var getJST = (() => {
         second: '2-digit',
         fractionalSecondDigits: 3,
         hour12: !1,
-      }).formatToParts(x()),
-      t = (s) => e.find((o) => o.type === s)?.value ?? '';
+      }).formatToParts(A()),
+      e = (r) => n.find((o) => o.type === r)?.value ?? '';
     return {
-      yyyy: t('year'),
-      mm: t('month'),
-      dd: t('day'),
-      hh: t('hour'),
-      mi: t('minute'),
-      ss: t('second'),
-      ms: t('fractionalSecond'),
+      yyyy: e('year'),
+      mm: e('month'),
+      dd: e('day'),
+      hh: e('hour'),
+      mi: e('minute'),
+      ss: e('second'),
+      ms: e('fractionalSecond'),
     };
   }
-  function w() {
-    let { yyyy: n, mm: e, dd: t, hh: s, mi: o, ss: r, ms: m } = c();
-    return `${n}-${e}-${t}T${s}:${o}:${r}.${m}+09:00`;
-  }
-  function J() {
-    let { yyyy: n, mm: e, dd: t, hh: s, mi: o, ss: r } = c();
-    return `${n}-${e}-${t}T${s}:${o}:${r}+09:00`;
-  }
-  function D() {
-    let { yyyy: n, mm: e, dd: t, hh: s, mi: o, ss: r } = c();
-    return `${n}-${e}-${t}_${s}:${o}:${r}`;
-  }
-  function M() {
-    let { yyyy: n, mm: e, dd: t, hh: s, mi: o, ss: r } = c();
-    return `${n}${e}${t}T${s}${o}${r}_jst`;
+  function C() {
+    let { yyyy: t, mm: n, dd: e, hh: r, mi: o, ss: s, ms: u } = c();
+    return `${t}-${n}-${e}T${r}:${o}:${s}.${u}+09:00`;
   }
   function k() {
-    let { yyyy: n, mm: e, dd: t } = c();
-    return `${n}${e}${t}`;
+    let { yyyy: t, mm: n, dd: e, hh: r, mi: o, ss: s } = c();
+    return `${t}-${n}-${e}T${r}:${o}:${s}+09:00`;
+  }
+  function N() {
+    let { yyyy: t, mm: n, dd: e, hh: r, mi: o, ss: s } = c();
+    return `${t}-${n}-${e}_${r}:${o}:${s}`;
   }
   function O() {
-    let { hh: n, mi: e, ss: t, ms: s } = c();
-    return `${n}${e}${t}${s}`;
+    let { yyyy: t, mm: n, dd: e, hh: r, mi: o, ss: s } = c();
+    return `${t}${n}${e}T${r}${o}${s}_jst`;
   }
-  function _() {
-    let { yyyy: n, mm: e, dd: t, hh: s, mi: o, ss: r, ms: m } = c();
-    return `${n}${e}${t}T${s}${o}${r}${m}_jst`;
+  function P() {
+    let { yyyy: t, mm: n, dd: e } = c();
+    return `${t}${n}${e}`;
   }
-  return T(C);
+  function b() {
+    let { hh: t, mi: n, ss: e, ms: r } = c();
+    return `${t}${n}${e}${r}`;
+  }
+  function I() {
+    let { yyyy: t, mm: n, dd: e, hh: r, mi: o, ss: s, ms: u } = c();
+    return `${t}${n}${e}T${r}${o}${s}${u}_jst`;
+  }
+  return J(j);
 })();

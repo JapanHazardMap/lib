@@ -1,27 +1,50 @@
 // Runtime/core/lib/getJST.js
-/* global fetch, console */
+/* global fetch, console, performance */
 // ------------------------------------------------------------
-// JST Utility Functions (with NTP/HTTP Clock Sync)
-// 日本標準時（JST）を扱うためのユーティリティ関数群（時刻ズレ補正機能付き）
+// JST Utility Functions (with NTP/HTTP Clock Sync & Cache TTL)
+// 日本標準時（JST）を扱うためのユーティリティ関数群（キャッシュ有効期限付き時刻ズレ補正機能）
 // ------------------------------------------------------------
 
 // 端末の時計と正確な時刻の差分（ミリ秒）
 let clockOffsetMs = 0;
 let isSynced = false;
+let lastSyncPerfMs = null; // performance.now() による単調増加タイマー
+
+const DEFAULT_SYNC_TTL_SEC = 3600;
 
 /**
  * syncJST()
  * ------------------------------------------------------------
  * 外部の公開時刻API（デフォルトは Cloudflare エッジ、フォールバックに WorldTimeAPI）
  * から正確な現在時刻を取得し、端末の時計とのズレ（オフセット）を計算して保存する。
- * Syncs with public time APIs (Cloudflare edge by default, falling back to WorldTimeAPI)
- * and stores the clock offset against the local device clock.
+ * キャッシュ有効期限（ttlSec）内の再呼び出しは通信をスキップして現在のオフセット値を返す。
  *
- * @param {string} [customApiUrl] 任意の時刻同期エンドポイントURL（省略時は内蔵のフォールバックリストを使用）
+ * @param {object|string} [options] オプションオブジェクト または カスタムURL文字列
+ * @param {string} [options.customApiUrl] 任意の時刻同期エンドポイントURL
+ * @param {number} [options.ttlSec=3600] キャッシュ有効期限（秒）。0以下で毎回同期
+ * @param {boolean} [options.force=false] true の場合は有効期限内でも強制再同期
  * @returns {Promise<number>} 計算されたオフセット値（ミリ秒）
  */
-export async function syncJST(customApiUrl) {
-  // コピー時のURL短縮・パス欠落を防ぐためパスを結合して生成
+export async function syncJST(options = {}) {
+  // 後方互換性：第1引数に文字列が渡された場合もサポート
+  const {
+    customApiUrl = typeof options === 'string' ? options : undefined,
+    ttlSec = DEFAULT_SYNC_TTL_SEC,
+    force = false,
+  } = typeof options === 'object' && options !== null ? options : {};
+
+  const nowPerf = performance.now();
+
+  if (
+    !force &&
+    isSynced &&
+    lastSyncPerfMs !== null &&
+    ttlSec > 0 &&
+    (nowPerf - lastSyncPerfMs) / 1000 < ttlSec
+  ) {
+    return clockOffsetMs;
+  }
+
   const endpoints = customApiUrl
     ? [customApiUrl]
     : [
@@ -60,6 +83,7 @@ export async function syncJST(customApiUrl) {
         const roundTripTime = t3 - t0;
         clockOffsetMs = serverTimeMs - (t0 + roundTripTime / 2);
         isSynced = true;
+        lastSyncPerfMs = performance.now();
         return clockOffsetMs;
       }
     } catch {
@@ -74,12 +98,18 @@ export async function syncJST(customApiUrl) {
 /**
  * getClockOffset()
  * ------------------------------------------------------------
- * 現在の補正値（ミリ秒）と同期状態を返す。
+ * 現在の補正値（ミリ秒）、同期状態、最終同期からの経過秒数を返す。
  */
 export function getClockOffset() {
+  const elapsedSec =
+    lastSyncPerfMs !== null
+      ? Math.round(((performance.now() - lastSyncPerfMs) / 1000) * 100) / 100
+      : null;
+
   return {
     offsetMs: Math.round(clockOffsetMs),
     isSynced,
+    elapsedSec,
   };
 }
 
